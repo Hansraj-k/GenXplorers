@@ -1,0 +1,1615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GenXplorers - Controller Portal</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<style>
+@font-face { font-family:'Bad Russian'; src: url('Bad Russian.ttf') format('truetype');}
+*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+
+:root {
+  --brown:       #674846;
+  --brown-light: #7d5a58;
+  --brown-dark:  #4a3130;
+  --cream:       #fff8dc;
+  --cream2:      #fff3c0;
+  --cream3:      rgba(255,248,220,.12);
+  --cream-border:rgba(255,248,220,.22);
+  --green-sig:   #00cc55;
+  --red-sig:     #dd2222;
+  --yellow-sig:  #f5c400;
+  --shadow:      0 6px 24px rgba(103,72,70,.18);
+  --shadow-sm:   0 3px 12px rgba(103,72,70,.12);
+  --r-pill:      50px;
+  --r-card:      28px;
+  --r-map:       60px;
+}
+
+html { height:100%; }
+
+body {
+  background: var(--cream);
+  display:flex; justify-content:center; align-items:center;
+  min-height:100vh; overflow:hidden;
+  font-family:'Bad Russian','Georgia',serif;
+}
+
+.canvas-container {
+  width:1366px; height:768px;
+  background:var(--cream);
+  position:relative; overflow:hidden;
+  transform-origin:center center;
+}
+
+/* ── NAVBAR ──────────────────────────────────── */
+.navbar {
+  position:absolute;
+  left:30px; top:33px;
+  width:calc(100% - 60px); height:88px;
+  background:var(--brown); border-radius:var(--r-pill);
+  z-index:20; display:flex; align-items:center;
+  box-shadow:var(--shadow);
+}
+.logo {
+  position:absolute; left:35px; top:50%;
+  transform:translateY(-50%);
+  width:220px; height:47px; object-fit:contain;
+}
+.nb-center {
+  position:absolute; left:320px; top:50%;
+  transform:translateY(-50%);
+  display:flex; align-items:center; gap:10px;
+}
+.nb-badge {
+  padding:5px 18px; border-radius:var(--r-pill);
+  background:var(--cream3); border:1px solid var(--cream-border);
+  font-size:11px; color:var(--cream); letter-spacing:2px; text-transform:uppercase;
+}
+.nb-badge.ctrl { background:rgba(255,248,220,.2); border-color:rgba(255,248,220,.35); }
+.nb-right {
+  position:absolute; right:35px; top:50%;
+  transform:translateY(-50%);
+  display:flex; align-items:center; gap:14px;
+}
+.nb-stat {
+  display:flex; align-items:center; gap:6px;
+  background:var(--cream3); border:1px solid var(--cream-border);
+  border-radius:var(--r-pill); padding:5px 13px;
+  font-size:11px; color:var(--cream); letter-spacing:1px;
+}
+.nb-pip {
+  width:7px; height:7px; border-radius:50%;
+  background:rgba(255,248,220,.3); transition:all .3s;
+}
+.nb-pip.ok   { background:#4ade80; box-shadow:0 0 8px #4ade80; animation:bk .9s step-end infinite; }
+.nb-pip.warn { background:#fbbf24; box-shadow:0 0 8px #fbbf24; animation:bk .5s step-end infinite; }
+.nb-pip.off  { background:rgba(255,255,255,.2); }
+@keyframes bk{ 50%{opacity:.2} }
+.nb-clock {
+  font-size:15px; color:var(--cream); letter-spacing:2px;
+  padding:5px 14px; border-radius:var(--r-pill);
+ /* background:var(--cream3); border:1px solid var(--cream-border);*/
+  min-width:90px; text-align:center; font-weight: 900;
+}
+.nb-driver-link {
+  padding:7px 18px; border-radius:var(--r-pill);
+  background:var(--cream); color:var(--brown);
+  font-size:12px; font-weight:700; letter-spacing:1px;
+  text-decoration:none; transition:all .2s;
+  white-space:nowrap;
+}
+.nb-driver-link:hover { background:var(--cream2); }
+.avatar { width:40px; height:40px; border-radius:50%; object-fit:cover; }
+
+/* ── ROAD DECORATIONS ────────────────────────── */
+.road-frame { position:absolute; z-index:1; }
+.road-frame img { width:100%; height:100%; object-fit:contain; }
+.road-r1 { width:60px; height:60px; left:190px; top:-12px; }
+.road-r2 { width:60px; height:60px; left:190px; top:118px; }
+.road-r3 { width:249px; height:154px; left:0px; top:648px; }
+.road-r4 { width:230px; height:95px; left:1074px; top:100px; }
+
+/* ── STATUS GRAPHICS ─────────────────────────── */
+.fso-status { position:absolute; width:30px; height:102px; left:16px; top:399px; z-index:12; object-fit:contain; }
+.fs-status  { position:absolute; width:170px; height:39px; left:1166px; top:717px; z-index:12; object-fit:contain; }
+
+/* ── LEFT CONTROL PANEL ──────────────────────── */
+.left-panel {
+  position:absolute;
+  left:30px; top:176px;
+  width:310px; height:530px;
+  background:var(--brown); border-radius:var(--r-map);
+  z-index:10; padding:28px 30px;
+  display:flex; flex-direction:column; gap:0;
+  box-shadow:var(--shadow);
+  color:var(--cream);
+  overflow:hidden;
+}
+
+.sec-lbl {
+  font-size:9px; letter-spacing:3px; text-transform:uppercase;
+  color:var(--cream); margin-bottom:6px;
+  text-align: center;
+  font-weight: 600;
+}
+
+/* Emergency button */
+.emg-btn {
+  width:100%; padding:13px 20px;
+  background:rgba(255,248,220,.08);
+  border:1px solid rgba(255,248,220,.2);
+  border-radius:var(--r-pill);
+  cursor:pointer; transition:all .3s;
+  display:flex; align-items:center; gap:12px;
+  font-family:'Bad Russian','Georgia',serif;
+  position:relative; overflow:hidden; margin-bottom:14px; text-align: center;
+}
+.emg-btn::before {
+  content:''; position:absolute; inset:0; border-radius:var(--r-pill);
+  border:1px solid var(--red-sig); opacity:0;
+  animation:emgRing 2s ease-out infinite;
+}
+@keyframes emgRing{ 0%{opacity:.25;transform:scale(1)} 100%{opacity:0;transform:scale(1.04)} }
+.emg-btn.active {
+  background:rgba(0,204,85,.12);
+  border-color:rgba(0,204,85,.35);
+  animation:emgPulse 1.4s ease-in-out infinite;
+}
+@keyframes emgPulse{0%,100%{box-shadow:0 0 0 transparent}50%{box-shadow:0 0 24px rgba(0,204,85,.25)}}
+.emg-text {text-align: center;}
+.emg-title { font-size:12px; font-weight:600; text-align: center; color:var(--cream); letter-spacing:1.5px; text-transform:uppercase; }
+.emg-btn.active .emg-title { color:#4ade80; }
+.divider { height:1px; background:rgba(255,248,220,.15); margin:10px 0; }
+
+/* Stat row */
+.stat-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; }
+.stat-card {
+  background:rgba(255,248,220,.08); border:1px solid rgba(255,248,220,.15);
+  border-radius:var(--r-card); padding:10px 15px;
+}
+.stat-num {
+  font-size:28px; font-weight:700; color:var(--cream);
+  line-height:1; display:block; transition:all .4s;
+}
+.stat-num.green { color:#4ade80; text-shadow:0 0 12px rgba(74,222,128,.4); }
+.stat-num.amber { color:#fbbf24; }
+.stat-unit { font-size:9px; letter-spacing:2px; text-transform:uppercase; opacity:.6; display:block; margin-top:3px; font-weight: 900;}
+
+/* ESP32 section */
+.esp-row { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+.esp-input {
+  flex:1; height:38px; background:var(--cream); border:none; border-radius:var(--r-pill);
+  padding:0 16px; font-family:'Bad Russian','Georgia',serif;
+  font-size:13px; color:var(--brown); outline:none; transition:box-shadow .2s; font-weight:900; letter-spacing: 1.5px;
+}
+.esp-input:focus { box-shadow:0 0 0 3px rgba(255,248,220,.4); }
+.esp-input::placeholder { color:var(--brown); font-weight:900; opacity: .66; letter-spacing: 1.5px}
+.pill-btn {
+  height:38px; padding:0 16px; border:none; border-radius:var(--r-pill);
+  font-family:'Bad Russian','Georgia',serif; font-size:12px;
+  font-weight:700; letter-spacing:1px; cursor:pointer; transition:all .2s;
+  white-space:nowrap; flex-shrink:0;
+}
+.btn-cream { background:var(--cream); color:var(--brown); }
+.btn-cream:hover { background:var(--cream2); }
+.btn-cream:active { transform:scale(.95); }
+.btn-green { background:rgba(0,204,85,.2); color:#4ade80; border:1px solid rgba(0,204,85,.3); }
+.btn-red   { background:rgba(221,34,34,.2); color:#ff8888; border:1px solid rgba(221,34,34,.3); }
+.btn-yellow{ background:rgba(245,196,0,.2);  color:#ffd700; border:1px solid rgba(245,196,0,.3); }
+.btn-normal{ background:rgba(255,248,220,.1); color:var(--cream); border:1px solid rgba(255,248,220,.2); }
+
+/* Signal image buttons */
+.signal-btns { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:6px; margin-bottom:8px; }
+.sig-img-btn {
+  height:44px; border:none; border-radius:14px;
+  background:rgba(255,248,220,.08); border:1px solid rgba(255,248,220,.15);
+  cursor:pointer; transition:all .2s;
+  display:flex; align-items:center; justify-content:center;
+  padding:4px; overflow:hidden;
+}
+.sig-img-btn:hover { background:rgba(255,248,220,.18); transform:scale(1.04); }
+.sig-img-btn:active { transform:scale(.95); }
+.sig-img-btn img { width:100%; height:100%; object-fit:contain; }
+
+.esp-log {
+  padding:7px 14px; background:rgba(0,0,0,.15);
+  border:1px solid rgba(255,248,220,.1); border-radius:16px;
+  font-size:11px; color:#4ade80; letter-spacing:.5px;
+  min-height:28px; word-break:break-all;
+}
+.esp-chip {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:2px 10px; border-radius:var(--r-pill);
+  font-size:9px; letter-spacing:1px; text-transform:uppercase;
+  vertical-align:middle; margin-left:6px;
+}
+.esp-chip.ok  { background:rgba(0,204,85,.15); color:#4ade80; border:1px solid rgba(0,204,85,.25); }
+.esp-chip.off { background:rgba(221,34,34,.15); color:#ff8888; border:1px solid rgba(221,34,34,.25); }
+.esp-chip.unk { background:rgba(255,196,0,.12);  color:#ffd700; border:1px solid rgba(255,196,0,.2); }
+
+/* ── RIGHT INFO PANEL ────────────────────────── */
+.right-panel {
+  position:absolute;
+  right:30px; top:176px;
+  width:310px; height:530px;
+  background:var(--brown); border-radius:var(--r-map);
+  z-index:10; padding:28px 30px;
+  display:flex; flex-direction:column; gap:0;
+  box-shadow:var(--shadow); color:var(--cream);
+  overflow:hidden;
+}
+
+/* Settings icon button top-right of right panel */
+.panel-settings-btn {
+  position:absolute;
+  top:27px; right:27px;
+  width:34px; height:34px;
+  background:rgba(255,248,220,.12);
+  border:1px solid rgba(255,248,220,.22);
+  border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; transition:all .2s; z-index:15;
+  color:var(--cream);
+}
+.panel-settings-btn:hover { background:rgba(255,248,220,.22); transform:rotate(30deg); }
+.panel-settings-btn i { font-size:15px; }
+
+/* ── SETTINGS FLYOUT PANEL ───────────────────── */
+.settings-flyout {
+  position:absolute;
+  right:358px; top:176px;
+  width:0; height:530px;
+  background:var(--brown);
+  border-radius:60px 0 0 60px;
+  z-index:45; overflow:hidden;
+  transition:width .35s cubic-bezier(.32,.72,0,1);
+  box-shadow:var(--shadow);
+  display:flex; flex-direction:column;
+}
+.settings-flyout.open { width:220px; }
+.sf-header {
+  padding:22px 22px 12px;
+  border-bottom:1px solid rgba(255,248,220,.15);
+  display:flex; align-items:center; justify-content:space-between;
+  flex-shrink:0;
+}
+.sf-title { font-size:11px; letter-spacing:3px; text-transform:uppercase; color:var(--cream); white-space:nowrap; }
+.sf-close {
+  background:none; border:none; color:rgba(255,248,220,.5);
+  cursor:pointer; font-size:16px; line-height:1;
+  transition:color .2s;
+}
+.sf-close:hover { color:var(--cream); }
+.sf-body { flex:1; padding:12px 16px; display:flex; flex-direction:column; gap:6px; overflow-y:auto; }
+.sf-btn {
+  width:100%; padding:10px 14px;
+  background:rgba(255,248,220,.08); border:1px solid rgba(255,248,220,.15);
+  border-radius:16px; color:var(--cream);
+  font-family:'Bad Russian','Georgia',serif;
+  font-size:11px; letter-spacing:1px;
+  cursor:pointer; transition:all .2s;
+  display:flex; align-items:center; gap:10px;
+  white-space:nowrap; text-align:left;
+}
+.sf-btn:hover { background:rgba(255,248,220,.16); }
+.sf-btn:active { transform:scale(.97); }
+.sf-btn i { font-size:14px; flex-shrink:0; width:16px; text-align:center; }
+
+/* Live data rows */
+.live-row {
+  display:flex; align-items:flex-start; gap:10px;
+  padding:7px 0; border-bottom:1px solid rgba(255,248,220,.1); 
+}
+.live-row:last-of-type { border-bottom:none; }
+.live-ico { font-size:15px; flex-shrink:0; width:20px; text-align:center; margin-top:1px; }
+.live-lbl { font-size:9px; letter-spacing:1.5px; text-transform:uppercase; opacity:.69; font-weight: 900; margin-bottom:2px; }
+.live-val { font-size:12px; letter-spacing:1.5px; word-break:break-all; transition:all .3s; opacity: .93; font-weight: 600;}
+.live-val.green { color:#4ade80; }
+.live-val.amber { color:#fbbf24; }
+
+/* Signal list */
+.sig-list {
+  display:flex; flex-direction:column; gap:5px;
+  max-height:150px; overflow-y:auto;
+  scrollbar-width:thin; scrollbar-color:rgba(255,248,220,.2) transparent;
+  padding-right:2px;
+}
+.sig-list::-webkit-scrollbar { width:3px; }
+.sig-list::-webkit-scrollbar-thumb { background:rgba(255,248,220,.2); border-radius:2px; }
+.sig-row {
+  display:flex; align-items:center; gap:8px;
+  padding:6px 10px;
+  background:rgba(255,248,220,.07); border:1px solid rgba(255,248,220,.12);
+  border-radius:14px; transition:all .3s;
+}
+.sig-row.green-mode { background:rgba(0,204,85,.1); border-color:rgba(0,204,85,.25); }
+.sr-pip { width:9px; height:9px; border-radius:50%; flex-shrink:0; transition:all .3s; }
+.sr-pip.r { background:var(--red-sig); }
+.sr-pip.y { background:var(--yellow-sig); }
+.sr-pip.g { background:var(--green-sig); box-shadow:0 0 7px var(--green-sig); animation:bk .5s step-end infinite; }
+.sr-name { flex:1; font-size:11px; letter-spacing:.3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.sr-dist { font-size:10px; opacity:.55; flex-shrink:0; }
+.sr-acts { display:flex; gap:3px; flex-shrink:0; }
+.sr-btn {
+  height:22px; padding:0 8px; border:none; border-radius:10px;
+  font-size:9px; font-weight:700; cursor:pointer; transition:all .2s;
+  font-family:'Bad Russian','Georgia',serif; letter-spacing:.5px;
+}
+.sr-btn.g { background:rgba(0,204,85,.2); color:#4ade80; }
+.sr-btn.n { background:rgba(255,248,220,.1); color:rgba(255,248,220,.6); }
+.sr-btn:hover { opacity:.8; }
+
+/* Event log */
+.elog {
+  flex:1; display:flex; flex-direction:column; gap:4px;
+  overflow-y:auto; min-height:0;
+  scrollbar-width:thin; scrollbar-color:rgba(255,248,220,.2) transparent;
+}
+.elog::-webkit-scrollbar { width:3px; }
+.elog::-webkit-scrollbar-thumb { background:rgba(255,248,220,.2); border-radius:2px; }
+.log-item {
+  padding:4px 10px; border-radius:10px;
+  font-size:10px; letter-spacing:.3px;
+  border-left:2px solid transparent;
+  animation:logIn .2s ease;
+}
+@keyframes logIn{ from{opacity:0;transform:translateX(-5px)} to{opacity:1;transform:none} }
+.li-i { border-color:rgba(255,248,220,.3); background:rgba(255,248,220,.05); color:rgba(255,248,220,.5); }
+.li-s { border-color:rgba(0,204,85,.6); background:rgba(0,204,85,.07); color:#4ade80; }
+.li-w { border-color:rgba(245,196,0,.6); background:rgba(245,196,0,.07); color:#ffd700; }
+.li-e { border-color:rgba(221,34,34,.6); background:rgba(221,34,34,.07); color:#ff8888; }
+
+/* Clear btn */
+.clear-btn {
+  padding:3px 12px; border:1px solid rgba(255,248,220,.2);
+  border-radius:var(--r-pill); background:transparent; color:rgba(255,248,220,.5);
+  font-size:10px; cursor:pointer; transition:all .2s;
+  font-family:'Bad Russian','Georgia',serif; letter-spacing:.5px;
+}
+.clear-btn:hover { background:rgba(255,248,220,.1); color:var(--cream); }
+
+/* ── MAP CENTER ──────────────────────────────── */
+.map-container {
+  position:absolute;
+  left:358px; top:176px;
+  width:650px; height:530px;
+  border-radius:var(--r-map);
+  overflow:hidden; z-index:10;
+  border:2px solid var(--brown);
+  box-shadow:var(--shadow);
+}
+#map { width:100%; height:100%; }
+.leaflet-container { background:#e8e0d5 !important; }
+.leaflet-control-zoom { border:2px solid var(--brown) !important; border-radius:12px !important; overflow:hidden; box-shadow:var(--shadow-sm) !important; }
+.leaflet-control-zoom a { background:var(--cream) !important; color:var(--brown) !important; border:none !important; font-weight:700; width:30px !important; height:30px !important; line-height:30px !important; }
+.leaflet-control-zoom a:hover { background:var(--cream2) !important; }
+.leaflet-popup-content-wrapper { background:var(--brown) !important; border-radius:16px !important; color:var(--cream) !important; font-family:'Bad Russian','Georgia',serif !important; border:none !important; box-shadow:var(--shadow) !important; }
+.leaflet-popup-tip { background:var(--brown) !important; }
+.leaflet-popup-content { font-size:13px !important; margin:10px 14px !important; }
+
+.map-strip {
+  position:absolute;
+  top:192px; left:683px;
+  transform:translateX(-50%);
+  z-index:25; pointer-events:none;
+  background:rgba(255,248,220,.95);
+  border:2px solid var(--brown); border-radius:var(--r-pill);
+  padding:6px 20px;
+  font-size:11px; letter-spacing:2px; text-transform:uppercase;
+  color:var(--brown); white-space:nowrap;
+  backdrop-filter:blur(8px); transition:all .4s;
+  box-shadow:var(--shadow-sm);
+}
+.map-strip.active {
+  background:var(--brown); color:var(--cream);
+  border-color:#00cc55; box-shadow:0 0 20px rgba(0,204,85,.3);
+}
+
+.place-hint {
+  position:absolute;
+  bottom:224px; left:683px;
+  transform:translateX(-50%);
+  z-index:25; pointer-events:none;
+  background:var(--brown); color:var(--cream);
+  border:2px solid rgba(255,248,220,.3); border-radius:var(--r-pill);
+  padding:8px 20px; font-size:12px; letter-spacing:1px;
+  white-space:nowrap; display:none; box-shadow:var(--shadow-sm);
+}
+.place-hint.show { display:block; }
+
+/* Recenter button bottom-right of map */
+.loc-button {
+  position:absolute;
+  top:630px; left:930px;
+  z-index:25;
+  width:44px; height:44px;
+  background:var(--cream); border-radius:50%;
+  display:flex; justify-content:center; align-items:center;
+  cursor:pointer; box-shadow:var(--shadow); transition:transform .2s;
+  border:2px solid var(--brown); font-size:20px;
+}
+.loc-button:hover { transform:scale(1.08); }
+.loc-button:active { transform:scale(.92); }
+.loc-button img { width:100%; height:100%; border-radius:50%; object-fit:cover; }
+
+/* ── MODAL ────────────────────────────────────── */
+.modal-bg {
+  position:absolute; inset:0; z-index:200;
+  background:rgba(103,72,70,.5); backdrop-filter:blur(6px);
+  display:none; align-items:center; justify-content:center;
+}
+.modal-bg.show { display:flex; }
+.modal {
+  background:var(--cream); border-radius:40px;
+  padding:32px 36px; width:420px; max-width:90%;
+  box-shadow:0 16px 48px rgba(103,72,70,.35);
+  position:relative;
+  animation:modalIn .3s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes modalIn{ from{transform:scale(.9) translateY(20px);opacity:0} to{transform:none;opacity:1} }
+.modal-title { font-size:20px; font-weight:700; color:var(--brown); margin-bottom:4px; letter-spacing:.5px; font-weight:900;}
+.modal-sub { font-size:12px; color:var(--brown); margin-bottom:22px; letter-spacing:.5px; font-weight:900; opacity: .87;}
+.modal-close {
+  position:absolute; top:18px; right:20px;
+  background:none; border:none; font-size:20px;
+  color:rgba(103,72,70,.5); cursor:pointer; line-height:1;
+}
+.modal-close:hover { color:var(--brown); }
+.form-group { margin-bottom:14px; }
+.form-label { font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--brown); display:block; margin-bottom:5px; font-weight:900; opacity: .87; }
+.form-input {
+  width:100%; height:42px;
+  background:rgba(103,72,70,.07); border:2px solid rgba(103,72,70,.15);
+  border-radius:var(--r-pill); padding:0 18px;
+  font-family:'Bad Russian','Georgia',serif; font-size:14px; color:var(--brown); outline:none; transition:all .2s; font-weight:900;
+}
+.form-input:focus { border-color:var(--brown); box-shadow:0 0 0 3px rgba(103,72,70,.1); }
+.form-input::placeholder { font-weight:900; opacity: .51; color:var(--brown); }
+.form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:20px; }
+.modal-btn {
+  height:40px; padding:0 22px; border-radius:var(--r-pill);
+  font-family:'Bad Russian','Georgia',serif; font-size:13px;
+  font-weight:700; letter-spacing:1px; cursor:pointer; transition:all .2s; border:none;
+}
+.modal-btn.primary { background:var(--brown); color:var(--cream); }
+.modal-btn.primary:hover { background:var(--brown-light); }
+.modal-btn.ghost { background:rgba(103,72,70,.1); color:var(--brown); }
+.modal-btn.ghost:hover { background:rgba(103,72,70,.18); }
+.modal-btn:active { transform:scale(.96); }
+
+/* ── TOAST ────────────────────────────────────── */
+.toast-wrap {
+  position:absolute; top:108px; left:50%;
+  transform:translateX(-50%);
+  z-index:900; display:flex; flex-direction:column; gap:8px;
+  pointer-events:none; width:380px;
+}
+.toast {
+  padding:10px 22px; border-radius:var(--r-pill);
+  background:var(--brown); color:var(--cream);
+  font-size:13px; letter-spacing:1px; text-align:center;
+  box-shadow:var(--shadow); animation:tIn .35s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes tIn{ from{transform:translateY(-10px) scale(.95);opacity:0} to{transform:none;opacity:1} }
+
+/* Responsive scale */
+@media(max-width:1400px){ .canvas-container{transform:scale(0.92)} }
+@media(max-width:1200px){ .canvas-container{transform:scale(0.80)} }
+@media(max-width:1024px){ .canvas-container{transform:scale(0.68)} }
+@media(max-width:800px) { .canvas-container{transform:scale(0.52)} }
+@media(max-width:600px) { .canvas-container{transform:scale(0.38)} }
+
+/* ── LOCATION MODAL SIGNAL CHIPS ─────────── */
+.loc-sig-chip {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:5px 12px; border-radius:50px;
+  font-size:11px; letter-spacing:.5px; cursor:pointer;
+  border:2px solid rgba(103,72,70,.15);
+  background:rgba(103,72,70,.06); color:var(--brown);
+  transition:all .2s; user-select:none;
+}
+.loc-sig-chip:hover { background:rgba(103,72,70,.12); }
+.loc-sig-chip.selected {
+  background:var(--brown); color:var(--cream);
+  border-color:var(--brown);
+}
+
+/* ── SAVED ROUTE CARD ─────────────────────── */
+.loc-card {
+  background:rgba(103,72,70,.06);
+  border:2px solid rgba(103,72,70,.12);
+  border-radius:20px; padding:14px 16px;
+  cursor:pointer; transition:all .2s;
+}
+.loc-card:hover { background:rgba(103,72,70,.1); border-color:rgba(103,72,70,.22); }
+.loc-card-name { font-size:14px; font-weight:700; color:var(--brown); margin-bottom:4px; }
+.loc-card-route { font-size:11px; color:rgba(103,72,70,.6); letter-spacing:.5px; margin-bottom:6px; }
+.loc-card-tags { display:flex; flex-wrap:wrap; gap:4px; }
+.loc-card-tag {
+  padding:2px 10px; border-radius:50px;
+  background:rgba(103,72,70,.1); color:rgba(103,72,70,.7);
+  font-size:10px; letter-spacing:.5px;
+}
+.loc-card-actions { display:flex; gap:6px; margin-top:10px; }
+.loc-card-btn {
+  flex:1; padding:7px; border-radius:50px;
+  font-family:'Bad Russian',Georgia,serif; font-size:11px;
+  font-weight:700; letter-spacing:.5px; cursor:pointer;
+  transition:all .2s; border:none;
+}
+.loc-card-btn.load { background:var(--brown); color:var(--cream); }
+.loc-card-btn.load:hover { background:var(--brown-light); }
+.loc-card-btn.del { background:rgba(221,34,34,.1); color:#cc2222; border:1px solid rgba(221,34,34,.2); }
+.loc-card-btn.del:hover { background:rgba(221,34,34,.18); }
+.loc-card-btn:active { transform:scale(.96); }
+/* ── CATEGORY & FILTER PILLS ─────────────────── */
+.cat-pill {
+  padding:5px 13px; border-radius:50px; cursor:pointer;
+  font-size:11px; letter-spacing:.5px;
+  border:2px solid rgba(103,72,70,.15);
+  background:rgba(103,72,70,.06); color:var(--brown);
+  transition:all .2s; user-select:none;
+}
+.cat-pill:hover  { background:rgba(103,72,70,.12); }
+.cat-pill.active { background:var(--brown); color:var(--cream); border-color:var(--brown); }
+
+.filter-pill {
+  padding:4px 12px; border-radius:50px; cursor:pointer;
+  font-size:11px; border:2px solid rgba(103,72,70,.12);
+  background:rgba(103,72,70,.05); color:rgba(103,72,70,.6);
+  transition:all .2s; user-select:none;
+}
+.filter-pill:hover  { background:rgba(103,72,70,.1); }
+.filter-pill.active { background:var(--brown); color:var(--cream); border-color:var(--brown); }
+
+/* ── POI CARD ─────────────────────────────────── */
+.poi-card {
+  background:rgba(103,72,70,.06);
+  border:2px solid rgba(103,72,70,.1);
+  border-radius:18px; padding:12px 14px;
+  transition:all .2s;
+}
+.poi-card:hover { background:rgba(103,72,70,.1); border-color:rgba(103,72,70,.2); }
+.poi-card-top  { display:flex; align-items:flex-start; gap:8px; margin-bottom:6px; }
+.poi-card-icon { font-size:16px; flex-shrink:0; margin-top:2px; color:var(--brown); }
+.poi-card-name { font-size:13px; font-weight:700; color:var(--brown); line-height:1.2; }
+.poi-card-cat  { font-size:10px; letter-spacing:1px; text-transform:uppercase; color:rgba(103,72,70,.5); margin-top:2px; }
+.poi-card-addr { font-size:11px; color:rgba(103,72,70,.55); margin-bottom:6px; line-height:1.4; }
+.poi-card-notes{ font-size:11px; color:rgba(103,72,70,.45); font-style:italic; margin-bottom:6px; }
+.poi-card-acts { display:flex; gap:6px; }
+.poi-card-btn  {
+  flex:1; padding:6px; border-radius:50px;
+  font-family:'Bad Russian',Georgia,serif;
+  font-size:10px; font-weight:700; letter-spacing:.5px;
+  cursor:pointer; transition:all .2s; border:none;
+}
+.poi-btn-nav  { background:var(--brown); color:var(--cream); }
+.poi-btn-nav:hover { background:var(--brown-light); }
+.poi-btn-map  { background:rgba(103,72,70,.12); color:var(--brown); }
+.poi-btn-map:hover { background:rgba(103,72,70,.2); }
+.poi-btn-del  { background:rgba(221,34,34,.08); color:#cc2222; border:1px solid rgba(221,34,34,.15) !important; flex:0; padding:6px 10px; }
+.poi-btn-del:hover { background:rgba(221,34,34,.16); }
+.poi-card-btn:active { transform:scale(.95); }
+
+/* ── LOC SEARCH SUGGESTIONS ───────────────────── */
+#lSearchSugg .sugg-item { color:var(--brown); border-bottom:1px solid rgba(103,72,70,.08); }
+#lSearchSugg .sugg-item:hover { background:var(--cream2); }
+</style>
+</head>
+<body>
+
+<div class="canvas-container" id="canvas">
+
+  <!-- ROAD DECORATIONS -->
+  <div class="road-frame road-r1"><img src="r1.png" alt=""/></div>
+  <div class="road-frame road-r2"><img src="r2.png" alt=""/></div>
+  <div class="road-frame road-r4"><img src="r4.png" alt=""/></div>
+  <div class="road-frame road-r3"><img src="r3.png" alt=""/></div>
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <img src="logoc.png" alt="GenXplorers" class="logo" onerror="this.style.display='none'"/>
+    <div class="nb-center"></div>
+    <div class="nb-right">
+      <div class="nb-stat"><div class="nb-pip" id="pipESP"></div>ESP32</div>
+      <div class="nb-clock" id="nbClock">--:--:--</div>
+    </div>
+  </nav>
+
+  <!-- FSO STATUS -->
+  <img src="fso.png" alt="" class="fso-status" onerror="this.style.display='none'"/>
+
+  <!-- ── LEFT PANEL ── -->
+  <div class="left-panel">
+
+    <!-- Emergency toggle -->
+    <div class="sec-lbl">Emergency Control</div>
+    <button class="emg-btn" id="emgBtn" onclick="toggleEmergency()">
+      <div class="emg-text">
+        <div class="emg-title" id="emgTitle">ACTIVATE CORRIDOR</div>
+      </div>
+    </button>
+
+    <!-- Stats grid -->
+    <div class="stat-row">
+      <div class="stat-card">
+        <span class="stat-num green" id="stGreen">0</span>
+        <span class="stat-unit">GREEN NOW</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num" id="stTotal">0</span>
+        <span class="stat-unit">ON ROUTE</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num amber" id="stDist">—</span>
+        <span class="stat-unit">NEXT SIG</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num" id="stETA">—</span>
+        <span class="stat-unit">ROUTE ETA</span>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- ESP32 control -->
+    <div class="sec-lbl">
+      ESP32 Controller
+      <span class="esp-chip unk" id="espChip">UNKNOWN</span>
+    </div>
+    <div class="esp-row">
+      <input class="esp-input" id="espIP" value="192.168.1.100" placeholder="192.168.x.x"/>
+      <button class="pill-btn btn-cream" onclick="pingESP()">Ping</button>
+    </div>
+
+    <!-- Signal image buttons: r.png, g.png, y.png, n.png -->
+    <div class="signal-btns">
+      <button class="sig-img-btn" onclick="manualESP('red')"   title="Red">
+        <img src="r.png" alt="Red"/>
+      </button>
+      <button class="sig-img-btn" onclick="manualESP('green')" title="Green">
+        <img src="g.png" alt="Green"/>
+      </button>
+      <button class="sig-img-btn" onclick="manualESP('yellow')" title="Yellow">
+        <img src="y.png" alt="Yellow"/>
+      </button>
+      <button class="sig-img-btn" onclick="manualESP('normal')" title="Normal">
+        <img src="n.png" alt="Normal"/>
+      </button>
+    </div>
+
+    <div class="esp-log" id="espLog">Waiting for commands…</div>
+
+    <div class="divider"></div>
+
+    <!-- Corridor signals list -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <div class="sec-lbl" style="margin-bottom:0">CORRIDOR SIGNALS</div>
+      <div class="sec-lbl" style="margin-bottom:0" id="routeSigCnt">0 on route</div>
+    </div>
+    <div class="sig-list" id="sigList">
+      <div style="font-size:11px;color:rgba(255,248,220,.35);text-align:center;padding:12px 0">
+        Set a route to see signals
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── MAP ── -->
+  <div class="map-container">
+    <div id="map"></div>
+  </div>
+
+  <!-- Map overlays — OUTSIDE map-container to avoid clipping -->
+  <div class="map-strip" id="mapStrip">
+    <i class="fa-solid fa-circle" style="font-size:8px;margin-right:4px"></i> CORRIDOR INACTIVE
+  </div>
+
+  <!-- Place mode hint bottom-center of map -->
+  <div class="place-hint" id="placeHint">
+    <i class="fa-solid fa-location-crosshairs" style="margin-right:6px"></i>Click on map to place signal
+  </div>
+
+  <!-- Recenter button bottom-right of map -->
+  <div class="loc-button" onclick="recenter()">
+    <img src="loc.png" alt="" onerror="this.innerHTML='<i class=\'fa-solid fa-location-arrow\' style=\'color:var(--brown);font-size:18px\'></i>';this.style.background='var(--cream)'"/>
+  </div>
+
+  <!-- ── SETTINGS FLYOUT (replaces map-actions) ── -->
+  <div class="settings-flyout" id="settingsFlyout">
+    <div class="sf-header">
+      <span class="sf-title">Map Actions</span>
+      <button class="sf-close" onclick="closeSettings()">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <div class="sf-body">
+      <button class="sf-btn" id="btnPlace" onclick="togglePlaceMode()">
+        <i class="fa-solid fa-location-dot"></i> Mark Signal
+      </button>
+      <button class="sf-btn" onclick="openModal('modalSig');closeSettings()">
+        <i class="fa-solid fa-plus"></i> Add Signal
+      </button>
+      <button class="sf-btn" onclick="openLocModal();closeSettings()">
+        <i class="fa-solid fa-map"></i> Add Location
+      </button>
+      <button class="sf-btn" onclick="openLocPanel();closeSettings()">
+        <i class="fa-solid fa-folder-open"></i> Saved Routes
+      </button>
+    </div>
+  </div>
+
+  <!-- ── RIGHT PANEL ── -->
+  <div class="right-panel">
+
+    <!-- Settings icon top-right -->
+    <button class="panel-settings-btn" onclick="toggleSettings()" title="Map Actions">
+      <i class="fa-solid fa-gear"></i>
+    </button>
+
+    <!-- Live ambulance data -->
+    <div class="sec-lbl">Live Ambulance</div>
+    <div class="live-row">
+      <div class="live-ico"><i class="fa-solid fa-location-pin" style="font-size:14px"></i></div>
+      <div><div class="live-lbl">Location</div><div class="live-val" id="lrLoc">Acquiring GPS…</div></div>
+    </div>
+    <div class="live-row">
+      <div class="live-ico"><i class="fa-solid fa-bolt" style="font-size:14px"></i></div>
+      <div><div class="live-lbl">Speed</div><div class="live-val amber" id="lrSpd">— km/h</div></div>
+    </div>
+    <div class="live-row">
+      <div class="live-ico"><i class="fa-solid fa-crosshairs" style="font-size:14px"></i></div>
+      <div><div class="live-lbl">Accuracy</div><div class="live-val" id="lrAcc">—</div></div>
+    </div>
+    <div class="live-row">
+      <div class="live-ico"><i class="fa-solid fa-hospital" style="font-size:14px"></i></div>
+      <div><div class="live-lbl">Destination</div><div class="live-val green" id="lrDest">Not set</div></div>
+    </div>
+    <div class="live-row">
+      <div class="live-ico"><i class="fa-solid fa-road" style="font-size:14px"></i></div>
+      <div><div class="live-lbl">Route Distance</div><div class="live-val" id="lrDist">—</div></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- All signals -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <div class="sec-lbl" style="margin-bottom:0">ALL SIGNALS</div>
+      <div class="sec-lbl" style="margin-bottom:0" id="allSigCnt">0</div>
+    </div>
+    <div class="sig-list" id="allSigList" style="max-height:120px"></div>
+    <button class="pill-btn btn-normal" style="width:100%;height:32px;font-size:11px;margin-top:6px" onclick="openModal('modalSig')">
+      <i class="fa-solid fa-plus" style="margin-right:4px"></i> Add Signal Manually
+    </button>
+
+    <div class="divider"></div>
+
+    <!-- Event log -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <div class="sec-lbl" style="margin-bottom:0">SYSTEM LOG</div>
+      <button class="clear-btn" onclick="document.getElementById('elog').innerHTML=''">Clear</button>
+    </div>
+    <div class="elog" id="elog"></div>
+
+  </div>
+
+  <!-- FS STATUS -->
+  <img src="fs.png" alt="" class="fs-status" onerror="this.style.display='none'"/>
+
+  <!-- TOASTS -->
+  <div class="toast-wrap" id="toastWrap"></div>
+
+</div><!-- end canvas -->
+
+<!-- MODAL: Add Signal -->
+<div class="modal-bg" id="modalSig">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modalSig')">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+    <div class="modal-title">Add Signal</div>
+    <div class="modal-sub">Place a new traffic signal into the corridor system</div>
+    <div class="form-group">
+      <label class="form-label">Signal Name</label>
+      <input class="form-input" id="mName" placeholder="e.g. MG Road Junction"/>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Latitude</label>
+        <input class="form-input" id="mLat" placeholder="12.9716" type="number" step="any"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Longitude</label>
+        <input class="form-input" id="mLng" placeholder="77.5946" type="number" step="any"/>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">ESP32 IP</label>
+        <input class="form-input" id="mIP" placeholder="192.168.1.x"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Trigger Radius (m)</label>
+        <input class="form-input" id="mRad" value="0.5" type="number" step="any"/>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn ghost" onclick="closeModal('modalSig')">Cancel</button>
+      <button class="modal-btn primary" onclick="saveSignal()">Save Signal</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Add Location (POI) -->
+<div class="modal-bg" id="modalLoc">
+  <div class="modal" style="width:460px">
+    <button class="modal-close" onclick="closeModal('modalLoc')">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+    <div class="modal-title">Add Location</div>
+    <div class="modal-sub">Add a hospital, shop, school or any destination your drivers might need</div>
+
+    <!-- Name -->
+    <div class="form-group">
+      <label class="form-label">Place Name</label>
+      <input class="form-input" id="lName" placeholder="e.g. Victoria Hospital, Silk Board Metro…"/>
+    </div>
+
+    <!-- Category -->
+    <div class="form-group">
+      <label class="form-label">Category</label>
+      <div style="display:flex;flex-wrap:wrap;gap:6px" id="catPills">
+        <div class="cat-pill active" data-cat="hospital" onclick="selectCat(this)"><i class="fa-solid fa-hospital" style="margin-right:4px"></i>Hospital</div>
+        <div class="cat-pill" data-cat="school"   onclick="selectCat(this)"><i class="fa-solid fa-school"   style="margin-right:4px"></i>School</div>
+        <div class="cat-pill" data-cat="shop"     onclick="selectCat(this)"><i class="fa-solid fa-cart-shopping" style="margin-right:4px"></i>Shop</div>
+        <div class="cat-pill" data-cat="station"  onclick="selectCat(this)"><i class="fa-solid fa-train"    style="margin-right:4px"></i>Station</div>
+        <div class="cat-pill" data-cat="police"   onclick="selectCat(this)"><i class="fa-solid fa-shield-halved" style="margin-right:4px"></i>Police</div>
+        <div class="cat-pill" data-cat="fire"     onclick="selectCat(this)"><i class="fa-solid fa-fire-extinguisher" style="margin-right:4px"></i>Fire Stn</div>
+        <div class="cat-pill" data-cat="other"    onclick="selectCat(this)"><i class="fa-solid fa-location-dot" style="margin-right:4px"></i>Other</div>
+      </div>
+    </div>
+
+    <!-- Search address or pick from map -->
+    <div class="form-group" style="position:relative">
+      <label class="form-label">Search Address <span style="opacity:.5">— or click map to pin</span></label>
+      <div style="display:flex;gap:8px">
+        <input class="form-input" id="lSearch" placeholder="Type address to search…"
+               autocomplete="off" oninput="locSearchInput(this.value)" style="flex:1"/>
+        <button class="modal-btn ghost" style="height:42px;padding:0 14px;font-size:11px;white-space:nowrap"
+                onclick="pinFromMap()">
+          <i class="fa-solid fa-map-pin" style="margin-right:4px"></i>Pin on Map
+        </button>
+      </div>
+      <div id="lSearchSugg" style="position:absolute;top:calc(100% - 2px);left:0;right:0;
+           background:var(--cream);border:2px solid rgba(103,72,70,.2);border-radius:0 0 16px 16px;
+           overflow:hidden;box-shadow:0 8px 24px rgba(103,72,70,.15);
+           display:none;z-index:200;max-height:140px;overflow-y:auto"></div>
+    </div>
+
+    <!-- Lat/Lng (auto-filled, editable) -->
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Latitude</label>
+        <input class="form-input" id="lLat" placeholder="auto-filled" type="number" step="any"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Longitude</label>
+        <input class="form-input" id="lLng" placeholder="auto-filled" type="number" step="any"/>
+      </div>
+    </div>
+
+    <!-- Notes -->
+    <div class="form-group">
+      <label class="form-label">Notes <span style="opacity:.5">(optional)</span></label>
+      <input class="form-input" id="lNotes" placeholder="e.g. Emergency entrance on south side"/>
+    </div>
+
+    <!-- Status indicator -->
+    <div id="lStatus" style="font-size:11px;color:rgba(103,72,70,.5);letter-spacing:.5px;min-height:16px;margin-bottom:4px"></div>
+
+    <div class="modal-actions">
+      <button class="modal-btn ghost" onclick="closeModal('modalLoc')">Cancel</button>
+      <button class="modal-btn primary" onclick="savePOI()">Save Location</button>
+    </div>
+  </div>
+</div>
+
+<!-- SAVED LOCATIONS SIDE PANEL -->
+<div id="locPanel" style="
+  position:absolute; top:176px; right:358px;
+  width:0; height:530px; z-index:50;
+  background:var(--cream); border-radius:40px 0 0 40px;
+  overflow:hidden; transition:width .4s cubic-bezier(.32,.72,0,1);
+  box-shadow:var(--shadow); display:flex; flex-direction:column;
+">
+  <div style="padding:22px 22px 10px;flex-shrink:0;border-bottom:2px solid rgba(103,72,70,.1);display:flex;align-items:center;justify-content:space-between;min-width:280px">
+    <div>
+      <div style="font-size:14px;font-weight:700;color:var(--brown);letter-spacing:.5px">Saved Locations</div>
+      <div style="font-size:10px;letter-spacing:2px;color:rgba(103,72,70,.5);text-transform:uppercase;margin-top:2px">Hospitals · Shops · Schools…</div>
+    </div>
+    <button onclick="closeLocPanel()" style="background:none;border:none;font-size:18px;color:rgba(103,72,70,.4);cursor:pointer;flex-shrink:0">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+  </div>
+  <!-- Filter pills -->
+  <div style="padding:10px 16px;border-bottom:2px solid rgba(103,72,70,.08);display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;min-width:280px">
+    <div class="filter-pill active" data-filter="all"     onclick="filterPOIs(this)">All</div>
+    <div class="filter-pill" data-filter="hospital"  onclick="filterPOIs(this)"><i class="fa-solid fa-hospital"></i></div>
+    <div class="filter-pill" data-filter="school"    onclick="filterPOIs(this)"><i class="fa-solid fa-school"></i></div>
+    <div class="filter-pill" data-filter="shop"      onclick="filterPOIs(this)"><i class="fa-solid fa-cart-shopping"></i></div>
+    <div class="filter-pill" data-filter="station"   onclick="filterPOIs(this)"><i class="fa-solid fa-train"></i></div>
+    <div class="filter-pill" data-filter="police"    onclick="filterPOIs(this)"><i class="fa-solid fa-shield-halved"></i></div>
+    <div class="filter-pill" data-filter="fire"      onclick="filterPOIs(this)"><i class="fa-solid fa-fire-extinguisher"></i></div>
+    <div class="filter-pill" data-filter="other"     onclick="filterPOIs(this)"><i class="fa-solid fa-location-dot"></i></div>
+  </div>
+  <div id="locList" style="flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:7px;scrollbar-width:thin;min-width:280px"></div>
+  <div style="padding:10px 14px;border-top:2px solid rgba(103,72,70,.08);flex-shrink:0;min-width:280px">
+    <button onclick="openLocModal()" style="width:100%;padding:10px;background:var(--brown);color:var(--cream);border:none;border-radius:50px;font-family:'Bad Russian',Georgia,serif;font-size:12px;letter-spacing:1px;cursor:pointer;transition:all .2s">
+      <i class="fa-solid fa-plus" style="margin-right:4px"></i> Add New Location
+    </button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ═══════════════════════════════════════════════════
+//  GENXPLORERS CONTROLLER PORTAL
+//  SwiftPath Corridor Engine v2.1
+// ═══════════════════════════════════════════════════
+
+const CFG = {
+  TRIGGER_M : 0.5,
+  CLEAR_M   : 1.5,
+  BUFFER_M  : 300,
+  OSRM      : 'https://router.project-osrm.org/route/v1/driving/',
+  NOM       : 'https://nominatim.openstreetmap.org/search',
+};
+
+const DEFAULT_SIGS = [
+  {id:'bg01',name:'Silk Board Junction',  lat:12.9177,lng:77.6228,ip:'192.168.1.101',radius:0.5},
+  {id:'bg02',name:'Marathahalli Bridge',  lat:12.9591,lng:77.6993,ip:'192.168.1.102',radius:0.5},
+  {id:'bg03',name:'KR Puram Junction',    lat:13.0031,lng:77.6972,ip:'192.168.1.103',radius:0.5},
+  {id:'bg04',name:'Hebbal Flyover',       lat:13.0358,lng:77.5970,ip:'192.168.1.104',radius:0.5},
+  {id:'bg05',name:'Mekhri Circle',        lat:13.0050,lng:77.5836,ip:'192.168.1.105',radius:0.5},
+  {id:'bg06',name:'Yeshwanthpur Circle',  lat:13.0274,lng:77.5527,ip:'192.168.1.106',radius:0.5},
+  {id:'bg07',name:'Rajajinagar Circle',   lat:12.9987,lng:77.5517,ip:'192.168.1.107',radius:0.5},
+  {id:'bg08',name:'Koramangala Signal',   lat:12.9352,lng:77.6245,ip:'192.168.1.108',radius:0.5},
+  {id:'bg09',name:'Electronic City Toll', lat:12.8445,lng:77.6586,ip:'192.168.1.109',radius:0.5},
+  {id:'bg10',name:'Whitefield Signal',    lat:12.9811,lng:77.7499,ip:'192.168.1.110',radius:0.5},
+  {id:'bg11',name:'Domlur Flyover',       lat:12.9611,lng:77.6393,ip:'192.168.1.111',radius:0.5},
+  {id:'bg12',name:'Old Airport Rd Jn',    lat:12.9731,lng:77.6422,ip:'192.168.1.112',radius:0.5},
+  {id:'bg13',name:'BTM Layout Signal',    lat:12.9165,lng:77.6101,ip:'192.168.1.113',radius:0.5},
+  {id:'bg14',name:'JP Nagar Signal',      lat:12.9081,lng:77.5822,ip:'192.168.1.114',radius:0.5},
+  {id:'bg15',name:'Residency Road Jn',    lat:12.9717,lng:77.6066,ip:'192.168.1.115',radius:0.5},
+  {id:'bg16',name:'Magadi Road Jn',       lat:12.9745,lng:77.5385,ip:'192.168.1.116',radius:0.5},
+  {id:'bg17',name:'Bannerghatta Rd',      lat:12.8884,lng:77.5968,ip:'192.168.1.117',radius:0.5},
+  {id:'bg18',name:'Kengeri Junction',     lat:12.9131,lng:77.4828,ip:'192.168.1.118',radius:0.5},
+  {id:'bg19',name:'Jayanagar 4th Block',  lat:12.9246,lng:77.5825,ip:'192.168.1.119',radius:0.5},
+  {id:'bg20',name:'Mysore Road Signal',   lat:12.9406,lng:77.5101,ip:'192.168.1.120',radius:0.5},
+];
+
+const DEMO = { sLat:12.9177,sLng:77.6228,dLat:12.9716,dLng:77.5721,dName:'Victoria Hospital, Bengaluru' };
+
+// ── State ─────────────────────────────────────────
+let signals = loadSignals();
+const sigStates = {}; signals.forEach(s=>sigStates[s.id]='red');
+let map, ambMk, destMk, routeLayer, routeGlow;
+const sigMks = {};
+let gpsLat=null,gpsLng=null,gpsSpeed=null,gpsAcc=null;
+let routeCoords=[],routeDist=0;
+let sigOnRoute=[],passed=new Set(),greenIds=new Set();
+let emergency=false,evalTimer=null,simTimer=null;
+let placingMode=false;
+let poiPinMode=false;
+
+// ── Helpers ───────────────────────────────────────
+function hav(a,b,c,d){const R=6371000,dL=(c-a)*Math.PI/180,dG=(d-b)*Math.PI/180;const e=Math.sin(dL/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dG/2)**2;return R*2*Math.atan2(Math.sqrt(e),Math.sqrt(1-e));}
+const fKms  = m=>m&&m>0?(m/1000).toFixed(1):'—';
+const fMins = s=>s&&s>0?Math.ceil(s/60).toString():'—';
+const fDist = m=>m==null?'—':m<1?`${(m*100).toFixed(0)}cm`:m<1000?`${m.toFixed(0)}m`:`${(m/1000).toFixed(2)}km`;
+const uid   = ()=>'sig_'+Math.random().toString(36).slice(2,8);
+
+function loadSignals(){try{const d=JSON.parse(localStorage.getItem('gx_sigs'));if(d?.length)return d;}catch{}return DEFAULT_SIGS.map(s=>({...s}));}
+function saveSigs(){ localStorage.setItem('gx_sigs',JSON.stringify(signals)); }
+
+async function sendESP(ip,cmd){if(!ip||ip==='none')return;try{await fetch(`http://${ip}/${cmd}`,{mode:'no-cors',signal:AbortSignal.timeout(3000)});}catch{}}
+
+// ── Clock ─────────────────────────────────────────
+setInterval(()=>{ document.getElementById('nbClock').textContent=new Date().toLocaleTimeString('en-GB',{hour12:false}); },1000);
+
+// ── Settings flyout ───────────────────────────────
+function toggleSettings(){
+  const f=document.getElementById('settingsFlyout');
+  f.classList.toggle('open');
+}
+function closeSettings(){
+  document.getElementById('settingsFlyout').classList.remove('open');
+}
+
+// ── Map ───────────────────────────────────────────
+function initMap(){
+  map=L.map('map',{zoomControl:true,attributionControl:false}).setView([12.9716,77.5946],12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+  signals.forEach(s=>placeSigMk(s));
+  map.on('click',e=>{
+    if(placingMode)    onMapClick(e.latlng.lat,e.latlng.lng);
+    else if(poiPinMode) onPOIPinClick(e.latlng.lat,e.latlng.lng);
+  });}
+
+function placeSigMk(sig){
+  const st=sigStates[sig.id]||'red';
+  const g=st==='green', y=st==='yellow';
+  const color=g?'#4ade80':y?'#ffd700':'#ff4444';
+  const shadow=g?'0 0 10px #00cc55':y?'0 0 8px #f5c400':'0 0 6px #dd2222';
+  const ico=L.divIcon({className:'',html:`<div style="width:18px;height:18px;border-radius:50%;background:${color};box-shadow:${shadow};border:2px solid rgba(255,255,255,0.5)"></div>`,iconSize:[18,18],iconAnchor:[9,9]});
+  if(sigMks[sig.id]) map.removeLayer(sigMks[sig.id]);
+  sigMks[sig.id]=L.marker([sig.lat,sig.lng],{icon:ico}).addTo(map)
+    .bindPopup(`<b>${sig.name}</b><br><small>${sig.lat.toFixed(5)}, ${sig.lng.toFixed(5)}</small><br><small>ESP32: ${sig.ip} · r=${sig.radius}m</small><br>
+      <div style="display:flex;gap:5px;margin-top:8px">
+        <button onclick="manualSigCmd('${sig.id}','green')"  style="flex:1;padding:4px;background:rgba(0,204,85,.2);border:1px solid rgba(0,204,85,.3);border-radius:8px;color:#4ade80;cursor:pointer;font-size:11px">Green</button>
+        <button onclick="manualSigCmd('${sig.id}','normal')" style="flex:1;padding:4px;background:rgba(255,248,220,.1);border:1px solid rgba(255,248,220,.2);border-radius:8px;color:#fff8dc;cursor:pointer;font-size:11px">Normal</button>
+        <button onclick="removeSig('${sig.id}')"             style="padding:4px 8px;background:rgba(221,34,34,.15);border:1px solid rgba(221,34,34,.25);border-radius:8px;color:#ff8888;cursor:pointer;font-size:11px">X</button>
+      </div>`);
+}
+
+// ── GPS ───────────────────────────────────────────
+function startGPS(){
+  if(!navigator.geolocation){fbGPS();return;}
+  navigator.geolocation.watchPosition(p=>{
+    gpsLat=p.coords.latitude;gpsLng=p.coords.longitude;
+    gpsSpeed=p.coords.speed;gpsAcc=p.coords.accuracy;
+    updGPS(false);moveAmb(gpsLat,gpsLng);
+    if(emergency)evaluate();updProgress();
+  },()=>{if(!gpsLat)fbGPS();},{enableHighAccuracy:true,maximumAge:2000,timeout:8000});
+}
+function fbGPS(){gpsLat=12.9716;gpsLng=77.5946;gpsSpeed=0;gpsAcc=5;updGPS(true);moveAmb(gpsLat,gpsLng);}
+function updGPS(sim){
+  if(gpsLat){
+    document.getElementById('lrLoc').textContent=`${gpsLat.toFixed(5)}, ${gpsLng.toFixed(5)}`;
+    document.getElementById('lrSpd').textContent=`${gpsSpeed?((gpsSpeed*3.6).toFixed(0)):0} km/h`;
+    document.getElementById('lrAcc').textContent=gpsAcc?`${gpsAcc.toFixed(0)} m`:'—';
+  }
+}
+function moveAmb(lat,lng){
+  if(!ambMk){
+    const ico=L.divIcon({className:'',html:'<div style="font-size:30px;filter:drop-shadow(0 0 10px rgba(103,72,70,.8))">🚑</div>',iconSize:[36,36],iconAnchor:[18,18]});
+    ambMk=L.marker([lat,lng],{icon:ico,zIndexOffset:1000}).addTo(map);
+  } else ambMk.setLatLng([lat,lng]);
+}
+
+// ── Route ─────────────────────────────────────────
+async function fetchRoute(fLat,fLng,tLat,tLng){
+  try{
+    const r=await fetch(`${CFG.OSRM}${fLng},${fLat};${tLng},${tLat}?overview=full&geometries=geojson`);
+    const d=await r.json();
+    if(d.code!=='Ok')throw 0;
+    routeCoords=d.routes[0].geometry.coordinates.map(([g,l])=>[l,g]);
+    routeDist=d.routes[0].distance;
+  }catch{routeCoords=[[fLat,fLng],[tLat,tLng]];routeDist=hav(fLat,fLng,tLat,tLng);}
+  document.getElementById('lrDist').textContent=fDist(routeDist);
+  const spd=gpsSpeed||13.9;
+  document.getElementById('stETA').textContent=fMins(routeDist/spd)+'m';
+  drawRoute();findOnRoute();
+  if(emergency)startEng();
+  sysLog(`Route: ${fKms(routeDist)} km`,'i');
+}
+function drawRoute(){
+  if(routeGlow)map.removeLayer(routeGlow);
+  if(routeLayer)map.removeLayer(routeLayer);
+  routeGlow =L.polyline(routeCoords,{color:'rgba(103,72,70,.2)',weight:14}).addTo(map);
+  routeLayer=L.polyline(routeCoords,{color:'#674846',weight:5,opacity:.85,dashArray:'12 6',lineCap:'round'}).addTo(map);
+  map.fitBounds(routeLayer.getBounds(),{padding:[50,50]});
+}
+function findOnRoute(){
+  passed=new Set();[...greenIds].forEach(id=>doRestore(id));greenIds.clear();
+  sigOnRoute=signals.filter(sig=>routeCoords.some(([rl,rg])=>hav(sig.lat,sig.lng,rl,rg)<CFG.BUFFER_M));
+  if(routeCoords.length){const[sl,sg]=routeCoords[0];sigOnRoute.sort((a,b)=>hav(a.lat,a.lng,sl,sg)-hav(b.lat,b.lng,sl,sg));}
+  document.getElementById('routeSigCnt').textContent=`${sigOnRoute.length} on route`;
+  document.getElementById('stTotal').textContent=sigOnRoute.length;
+  buildCorrList(sigOnRoute);
+  sysLog(`${sigOnRoute.length} signals on route`,'i');
+}
+function updProgress(){
+  if(!routeCoords.length||!routeDist)return;
+  const last=routeCoords[routeCoords.length-1];
+  const rem=hav(gpsLat,gpsLng,last[0],last[1]);
+  const spd=gpsSpeed||13.9;
+  document.getElementById('stETA').textContent=fMins(rem/spd)+'m';
+}
+
+// ── Corridor Engine ───────────────────────────────
+function evaluate(){
+  if(!gpsLat||!sigOnRoute.length)return;
+  const up=[];
+  sigOnRoute.forEach(sig=>{
+    if(passed.has(sig.id))return;
+    const dist=hav(gpsLat,gpsLng,sig.lat,sig.lng);
+    const trig=sig.radius??CFG.TRIGGER_M;
+    if(dist<trig&&!greenIds.has(sig.id))doGreen(sig);
+    else if(dist>trig*3&&greenIds.has(sig.id)){doRestore(sig.id);passed.add(sig.id);}
+    if(!passed.has(sig.id))up.push({sig,dist,green:greenIds.has(sig.id)});
+  });
+  up.sort((a,b)=>a.dist-b.dist);
+  document.getElementById('stGreen').textContent=greenIds.size;
+  document.getElementById('stDist').textContent=up[0]?fDist(up[0].dist):'—';
+  updCorrList(up);
+  updMapStrip();
+}
+function doGreen(sig){
+  greenIds.add(sig.id);sigStates[sig.id]='green';
+  placeSigMk(sig);sendESP(sig.ip,'green');
+  buildAllSigList();updMapStrip();
+  document.getElementById('pipESP').className='nb-pip ok';
+  sysLog(`GREEN: ${sig.name}`,'s');
+}
+function doRestore(id){
+  greenIds.delete(id);sigStates[id]='red';
+  const sig=signals.find(s=>s.id===id);
+  if(sig){placeSigMk(sig);sendESP(sig.ip,'normal');}
+  buildAllSigList();updMapStrip();
+  sysLog(`Restored: ${sig?.name||id}`,'w');
+}
+function startEng(){clearInterval(evalTimer);evalTimer=setInterval(()=>{if(emergency)evaluate();},600);}
+function stopEng(){clearInterval(evalTimer);[...greenIds].forEach(id=>doRestore(id));greenIds.clear();}
+function updMapStrip(){
+  const s=document.getElementById('mapStrip');
+  if(emergency){
+    s.className='map-strip active';
+    s.innerHTML=greenIds.size>0
+      ?`<i class="fa-solid fa-circle-dot" style="margin-right:5px"></i> CORRIDOR ACTIVE — ${greenIds.size} GREEN`
+      :`<i class="fa-solid fa-siren-on" style="margin-right:5px"></i> EMERGENCY ACTIVE`;
+  } else {
+    s.className='map-strip';
+    s.innerHTML=`<i class="fa-solid fa-circle" style="font-size:8px;margin-right:5px"></i> CORRIDOR INACTIVE`;
+  }
+}
+
+// ── Emergency ─────────────────────────────────────
+function toggleEmergency(){
+  emergency=!emergency;
+  const btn=document.getElementById('emgBtn');
+  if(emergency){
+    btn.classList.add('active');
+    document.getElementById('emgTitle').textContent='DEACTIVATE CORRIDOR';
+    if(routeCoords.length)startEng();
+    updMapStrip();sysLog('Emergency ACTIVATED','s');
+    toast('Emergency Corridor ACTIVATED');
+  } else {
+    btn.classList.remove('active');
+    document.getElementById('emgTitle').textContent='ACTIVATE CORRIDOR';
+    stopEng();updMapStrip();
+    document.getElementById('stGreen').textContent='0';
+    sysLog('Emergency deactivated','w');
+    toast('Emergency deactivated');
+  }
+}
+
+// ── Demo ──────────────────────────────────────────
+async function loadDemo(){
+  document.getElementById('lrDest').textContent=DEMO.dName;
+  if(destMk)map.removeLayer(destMk);
+  destMk=L.marker([DEMO.dLat,DEMO.dLng],{icon:L.divIcon({className:'',html:'<div style="font-size:26px;filter:drop-shadow(0 0 8px rgba(103,72,70,.7))">🏥</div>',iconSize:[32,32],iconAnchor:[16,16]})}).addTo(map);
+  sysLog('Loading demo route…','i');
+  await fetchRoute(DEMO.sLat,DEMO.sLng,DEMO.dLat,DEMO.dLng);
+  if(!emergency)toggleEmergency();
+  clearInterval(simTimer);let i=0;
+  simTimer=setInterval(()=>{
+    if(i>=routeCoords.length){clearInterval(simTimer);sysLog('Demo complete','s');return;}
+    [gpsLat,gpsLng]=routeCoords[i];i+=3;gpsSpeed=13.9;gpsAcc=3;
+    updGPS(true);moveAmb(gpsLat,gpsLng);evaluate();updProgress();
+  },500);
+}
+
+// ── ESP32 ─────────────────────────────────────────
+async function pingESP(){
+  const ip=document.getElementById('espIP').value.trim();
+  document.getElementById('espLog').textContent=`Pinging ${ip}…`;
+  try{
+    await fetch(`http://${ip}/status`,{mode:'no-cors',signal:AbortSignal.timeout(2500)});
+    setChip('ok');document.getElementById('espLog').textContent=`OK ${ip} reachable`;
+    document.getElementById('pipESP').className='nb-pip ok';
+    sysLog(`ESP32 online: ${ip}`,'s');
+  }catch{
+    setChip('off');document.getElementById('espLog').textContent=`FAIL ${ip} unreachable`;
+    sysLog(`ESP32 offline: ${ip}`,'e');
+  }
+}
+async function manualESP(cmd){
+  const ip=document.getElementById('espIP').value.trim();
+  document.getElementById('espLog').textContent=`→ /${cmd} → ${ip}`;
+  await sendESP(ip,cmd);
+  document.getElementById('espLog').textContent=`OK /${cmd} sent to ${ip}`;
+  sysLog(`Manual /${cmd} → ${ip}`,'i');
+}
+async function manualSigCmd(id,cmd){
+  const sig=signals.find(s=>s.id===id);if(!sig)return;
+  await sendESP(sig.ip,cmd);
+  sigStates[id]=cmd==='green'?'green':'red';
+  placeSigMk(sig);buildAllSigList();
+  sysLog(`${cmd}: ${sig.name}`,'i');
+}
+function setChip(s){const c=document.getElementById('espChip');c.className='esp-chip '+(s==='ok'?'ok':s==='off'?'off':'unk');c.textContent=s==='ok'?'ONLINE':s==='off'?'OFFLINE':'UNKNOWN';}
+
+// ── Place Mode ────────────────────────────────────
+function togglePlaceMode(){
+  placingMode=!placingMode;
+  const btn=document.getElementById('btnPlace');
+  const hint=document.getElementById('placeHint');
+  if(placingMode){
+    btn.innerHTML='<i class="fa-solid fa-xmark"></i> Cancel';
+    btn.style.background='rgba(221,34,34,.15)';
+    btn.style.color='#ff8888';
+  } else {
+    btn.innerHTML='<i class="fa-solid fa-location-dot"></i> Mark Signal';
+    btn.style.background='';btn.style.color='';
+  }
+  hint.classList.toggle('show',placingMode);
+  map.getContainer().style.cursor=placingMode?'crosshair':'';
+}
+function onMapClick(lat,lng){
+  document.getElementById('mLat').value=lat.toFixed(6);
+  document.getElementById('mLng').value=lng.toFixed(6);
+  togglePlaceMode();
+  openModal('modalSig');
+}
+
+// ── Signal Lists ──────────────────────────────────
+function buildCorrList(sigs){
+  const c=document.getElementById('sigList');c.innerHTML='';
+  if(!sigs.length){c.innerHTML='<div style="font-size:11px;color:rgba(255,248,220,.35);text-align:center;padding:12px 0">No signals on this route</div>';return;}
+  sigs.forEach(sig=>{
+    const row=document.createElement('div');row.className='sig-row';row.id=`crow_${sig.id}`;
+    const dist=gpsLat?hav(gpsLat,gpsLng,sig.lat,sig.lng):null;
+    const g=greenIds.has(sig.id);
+    row.innerHTML=`<div class="sr-pip ${g?'g':'r'}" id="crpip_${sig.id}"></div><div class="sr-name">${sig.name}</div><div class="sr-dist" id="crdist_${sig.id}">${dist?fDist(dist):'—'}</div><div class="sr-acts"><button class="sr-btn g" onclick="manualSigCmd('${sig.id}','green')">G</button><button class="sr-btn n" onclick="manualSigCmd('${sig.id}','normal')">N</button></div>`;
+    c.appendChild(row);
+  });
+}
+function updCorrList(up){
+  up.forEach(({sig,dist,green})=>{
+    const d=document.getElementById(`crdist_${sig.id}`);
+    const p=document.getElementById(`crpip_${sig.id}`);
+    const r=document.getElementById(`crow_${sig.id}`);
+    if(d)d.textContent=fDist(dist);
+    if(p)p.className=`sr-pip ${green?'g':'r'}`;
+    if(r)r.className=`sig-row${green?' green-mode':''}`;
+  });
+}
+function buildAllSigList(){
+  const c=document.getElementById('allSigList');c.innerHTML='';
+  signals.forEach(sig=>{
+    const st=sigStates[sig.id]||'red';
+    const row=document.createElement('div');
+    row.style.cssText=`display:flex;align-items:center;gap:8px;padding:5px 10px;background:rgba(255,248,220,${st==='green'?'.12':'.06'});border:1px solid rgba(255,248,220,${st==='green'?'.25':'.1'});border-radius:12px;margin-bottom:4px`;
+    row.innerHTML=`<div style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:${st==='green'?'#4ade80':st==='yellow'?'#ffd700':'#ff8888'};${st==='green'?'box-shadow:0 0 6px #4ade80':''}"></div><div style="flex:1;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.3px">${sig.name}</div><div style="font-size:9px;opacity:.5">${sig.ip||'—'}</div><button onclick="removeSig('${sig.id}')" style="background:none;border:none;color:rgba(255,248,220,.4);cursor:pointer;font-size:12px;padding:0 2px"><i class="fa-solid fa-xmark"></i></button>`;
+    c.appendChild(row);
+  });
+  document.getElementById('allSigCnt').textContent=signals.length;
+}
+function removeSig(id){
+  if(!confirm('Remove this signal?'))return;
+  if(sigMks[id]){map.removeLayer(sigMks[id]);delete sigMks[id];}
+  signals=signals.filter(s=>s.id!==id);delete sigStates[id];saveSigs();
+  buildAllSigList();sysLog(`Signal removed: ${id}`,'w');
+}
+
+// ── Modals ────────────────────────────────────────
+function openModal(id){ document.getElementById(id).classList.add('show'); }
+function closeModal(id){
+  document.getElementById(id).classList.remove('show');
+  const sugg = document.getElementById('lSearchSugg');
+  if(sugg) sugg.style.display='none';
+}
+function saveSignal(){
+  const name=document.getElementById('mName').value.trim();
+  const lat=parseFloat(document.getElementById('mLat').value);
+  const lng=parseFloat(document.getElementById('mLng').value);
+  const ip=document.getElementById('mIP').value.trim();
+  const radius=parseFloat(document.getElementById('mRad').value)||0.5;
+  if(!name||isNaN(lat)||isNaN(lng)){alert('Name, Lat and Lng required');return;}
+  const sig={id:uid(),name,lat,lng,ip:ip||'none',radius};
+  signals.push(sig);sigStates[sig.id]='red';saveSigs();
+  placeSigMk(sig);buildAllSigList();
+  sysLog(`Signal added: ${name}`,'s');
+  closeModal('modalSig');
+  ['mName','mLat','mLng','mIP'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('mRad').value='0.5';
+  toast(`Signal added: ${name}`);
+}
+
+// ── Log ───────────────────────────────────────────
+function sysLog(msg,type='i'){
+  const c=document.getElementById('elog');
+  const el=document.createElement('div');
+  el.className=`log-item li-${type}`;
+  el.textContent=`[${new Date().toLocaleTimeString('en-GB',{hour12:false})}] ${msg}`;
+  c.prepend(el);
+  while(c.children.length>50) c.removeChild(c.lastChild);
+}
+
+// ── Toast ─────────────────────────────────────────
+function toast(msg){
+  const w=document.getElementById('toastWrap');
+  const t=document.createElement('div');t.className='toast';t.textContent=msg;w.prepend(t);
+  setTimeout(()=>{t.style.transition='opacity .4s';t.style.opacity='0';setTimeout(()=>t.remove(),400);},3000);
+}
+
+function recenter(){ if(gpsLat) map.setView([gpsLat,gpsLng],16); }
+
+// ── Responsive Scale ──────────────────────────────
+function scaleCanvas(){
+  const c=document.getElementById('canvas');
+  const scale=Math.min(window.innerWidth/1366,window.innerHeight/768);
+  c.style.transform=`scale(${scale})`;
+  setTimeout(()=>{ if(map) map.invalidateSize(); },100);
+}
+
+// ── Init ──────────────────────────────────────────
+document.addEventListener('DOMContentLoaded',()=>{
+  initMap();startGPS();buildAllSigList();scaleCanvas();
+  loadAllPOIMarkers();
+  sysLog('SwiftPath Controller v2.1 ready','s');
+  sysLog(`${signals.length} signals loaded`,'i');
+  document.addEventListener('keydown', e=>{ if(e.key==='F2') loadDemo(); });
+});
+window.addEventListener('resize',()=>{ scaleCanvas(); if(map) map.invalidateSize(); });
+
+
+// ── LOCATION / SAVED ROUTES ───────────────────────
+// ═══════════════════════════════════════════════
+//  POI (Points of Interest) SYSTEM
+// ═══════════════════════════════════════════════
+
+const CAT_ICON = {
+  hospital : 'fa-hospital',
+  school   : 'fa-school',
+  shop     : 'fa-cart-shopping',
+  station  : 'fa-train',
+  police   : 'fa-shield-halved',
+  fire     : 'fa-fire-extinguisher',
+  other    : 'fa-location-dot',
+};
+
+let currentFilter  = 'all';
+let locSearchTimer = null;
+let poiPinMode     = false;
+
+// ── Storage ──────────────────────────────────────
+function loadPOIs(){
+  try{ const d=JSON.parse(localStorage.getItem('gx_pois')||'[]'); return Array.isArray(d)?d:[]; }catch{ return []; }
+}
+function savePOIs(pois){
+  localStorage.setItem('gx_pois', JSON.stringify(pois));
+}
+
+// ── Category pill selection ───────────────────────
+function selectCat(el){
+  document.querySelectorAll('.cat-pill').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+}
+function getSelectedCat(){
+  const el = document.querySelector('.cat-pill.active');
+  return el ? el.dataset.cat : 'other';
+}
+
+// ── Address live search ───────────────────────────
+function locSearchInput(q){
+  clearTimeout(locSearchTimer);
+  const sugg = document.getElementById('lSearchSugg');
+  if(q.length < 2){ sugg.style.display='none'; return; }
+  sugg.style.display = 'block';
+  sugg.innerHTML = '<div style="padding:9px 18px;font-size:12px;color:rgba(103,72,70,.5)">Searching…</div>';
+  locSearchTimer = setTimeout(async ()=>{
+    try{
+      const r = await fetch(`${CFG.NOM}?format=json&q=${encodeURIComponent(q)}&limit=5`);
+      const d = await r.json();
+      sugg.innerHTML = '';
+      if(!d.length){ sugg.innerHTML='<div style="padding:9px 18px;font-size:12px;color:rgba(103,72,70,.4)">No results</div>'; return; }
+      d.slice(0,5).forEach(x=>{
+        const el = document.createElement('div');
+        el.className = 'sugg-item';
+        el.style.cssText = 'padding:9px 18px;font-size:12px;color:var(--brown);cursor:pointer;border-bottom:1px solid rgba(103,72,70,.07);transition:background .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+        el.textContent = (x.display_name||'').slice(0,55)+'…';
+        el.onmouseover = ()=>el.style.background='#fff3c0';
+        el.onmouseout  = ()=>el.style.background='';
+        el.onclick = ()=>{
+          document.getElementById('lSearch').value = (x.display_name||'').slice(0,55);
+          document.getElementById('lLat').value    = parseFloat(x.lat).toFixed(6);
+          document.getElementById('lLng').value    = parseFloat(x.lon).toFixed(6);
+          document.getElementById('lStatus').textContent = 'Location pinned from search';
+          sugg.style.display = 'none';
+          if(!document.getElementById('lName').value.trim())
+            document.getElementById('lName').value = (x.display_name||'').split(',')[0].trim();
+        };
+        sugg.appendChild(el);
+      });
+    }catch{ sugg.innerHTML='<div style="padding:9px 18px;font-size:12px;color:rgba(103,72,70,.4)">Error searching</div>'; }
+  }, 380);
+}
+
+// ── Pin-on-map mode ───────────────────────────────
+function pinFromMap(){
+  poiPinMode = true;
+  closeModal('modalLoc');
+  map.getContainer().style.cursor = 'crosshair';
+  document.getElementById('placeHint').classList.add('show');
+  toast('Click on map to pin the location');
+}
+
+function onPOIPinClick(lat,lng){
+  poiPinMode = false;
+  map.getContainer().style.cursor = '';
+  document.getElementById('placeHint').classList.remove('show');
+  document.getElementById('lLat').value    = lat.toFixed(6);
+  document.getElementById('lLng').value    = lng.toFixed(6);
+  document.getElementById('lStatus').textContent = 'Location pinned from map — ' + lat.toFixed(4) + ', ' + lng.toFixed(4);
+  openLocModal(true);
+  toast('Location pinned — fill in the name and save');
+}
+
+// ── Open modal ────────────────────────────────────
+function openLocModal(keepCoords){
+  if(!keepCoords){
+    ['lName','lSearch','lNotes','lLat','lLng'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('lStatus').textContent='';
+    document.getElementById('lSearchSugg').style.display='none';
+    document.querySelectorAll('.cat-pill').forEach(p=>p.classList.remove('active'));
+    const first = document.querySelector('.cat-pill');
+    if(first) first.classList.add('active');
+  }
+  openModal('modalLoc');
+}
+
+// ── Save POI ──────────────────────────────────────
+function savePOI(){
+  const name  = document.getElementById('lName').value.trim();
+  const lat   = parseFloat(document.getElementById('lLat').value);
+  const lng   = parseFloat(document.getElementById('lLng').value);
+  const cat   = getSelectedCat();
+  const notes = document.getElementById('lNotes').value.trim();
+  const addr  = document.getElementById('lSearch').value.trim();
+
+  if(!name){ alert('Place name is required'); return; }
+  if(isNaN(lat)||isNaN(lng)){
+    alert('Please search for an address or pin on map to set coordinates'); return;
+  }
+
+  const pois = loadPOIs();
+  const poi  = { id:uid(), name, cat, lat, lng, addr, notes, created:Date.now() };
+  pois.push(poi);
+  savePOIs(pois);
+  placePOIMarker(poi);
+  sysLog(`POI added: ${name} (${cat})`,'s');
+  toast(`${name} added`);
+  closeModal('modalLoc');
+  renderLocList();
+}
+
+// ── POI Marker on map ─────────────────────────────
+function placePOIMarker(poi){
+  const faIcon = CAT_ICON[poi.cat] || 'fa-location-dot';
+  const ico = L.divIcon({
+    className:'',
+    html:`<div style="width:28px;height:28px;border-radius:50%;background:var(--brown);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(103,72,70,.4)">
+            <i class="fa-solid ${faIcon}" style="color:var(--cream);font-size:13px"></i>
+          </div>`,
+    iconSize:[28,28], iconAnchor:[14,14],
+  });
+  const mk = L.marker([poi.lat,poi.lng],{icon:ico}).addTo(map)
+    .bindPopup(`<b><i class="fa-solid ${faIcon}" style="margin-right:5px"></i>${poi.name}</b><br>
+      <small style="opacity:.7;text-transform:capitalize">${poi.cat}</small>
+      ${poi.addr?'<br><small style="opacity:.6">'+poi.addr.slice(0,40)+'</small>':''}
+      ${poi.notes?'<br><small style="opacity:.6;font-style:italic">'+poi.notes+'</small>':''}
+      <br><div style="display:flex;gap:5px;margin-top:8px">
+        <button onclick="navigateToPOI('${poi.id}')" style="flex:1;padding:4px;background:rgba(103,72,70,.15);border:1px solid rgba(103,72,70,.3);border-radius:8px;color:var(--brown);cursor:pointer;font-size:11px">Navigate</button>
+        <button onclick="deletePOIById('${poi.id}')" style="padding:4px 8px;background:rgba(221,34,34,.1);border:1px solid rgba(221,34,34,.2);border-radius:8px;color:#cc2222;cursor:pointer;font-size:11px"><i class="fa-solid fa-xmark"></i></button>
+      </div>`);
+  if(!window._poiMks) window._poiMks = {};
+  window._poiMks[poi.id] = mk;
+}
+
+function loadAllPOIMarkers(){
+  loadPOIs().forEach(poi=>placePOIMarker(poi));
+}
+
+// ── Filter panel ─────────────────────────────────
+function filterPOIs(el){
+  document.querySelectorAll('.filter-pill').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  currentFilter = el.dataset.filter;
+  renderLocList();
+}
+
+// ── Render location list panel ───────────────────
+function renderLocList(){
+  const pois = loadPOIs();
+  const list = document.getElementById('locList');
+  list.innerHTML = '';
+  const filtered = currentFilter==='all' ? pois : pois.filter(p=>p.cat===currentFilter);
+  if(!filtered.length){
+    list.innerHTML = `<div style="text-align:center;color:rgba(103,72,70,.4);font-size:12px;padding:24px 0;letter-spacing:.5px">
+      ${pois.length===0?'No locations saved yet.<br>Click + Add New Location':'No locations in this category.'}
+    </div>`;
+    return;
+  }
+  [...filtered].reverse().forEach(poi=>{
+    const faIcon = CAT_ICON[poi.cat] || 'fa-location-dot';
+    const card = document.createElement('div');
+    card.className = 'poi-card';
+    card.id = `poicard_${poi.id}`;
+    card.innerHTML = `
+      <div class="poi-card-top">
+        <div class="poi-card-icon"><i class="fa-solid ${faIcon}"></i></div>
+        <div>
+          <div class="poi-card-name">${poi.name}</div>
+          <div class="poi-card-cat">${poi.cat}</div>
+        </div>
+      </div>
+      ${poi.addr?`<div class="poi-card-addr">${poi.addr.slice(0,50)}${poi.addr.length>50?'…':''}</div>`:''}
+      ${poi.notes?`<div class="poi-card-notes">"${poi.notes}"</div>`:''}
+      <div class="poi-card-acts">
+        <button class="poi-card-btn poi-btn-nav" onclick="navigateToPOI('${poi.id}')"><i class="fa-solid fa-route" style="margin-right:4px"></i>Route Here</button>
+        <button class="poi-card-btn poi-btn-map" onclick="flyToPOI('${poi.id}')"><i class="fa-solid fa-map" style="margin-right:4px"></i>Show</button>
+        <button class="poi-card-btn poi-btn-del" onclick="deletePOIById('${poi.id}')"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+    `;
+    list.appendChild(card);
+  });
+}
+
+// ── Navigate to POI ───────────────────────────────
+async function navigateToPOI(poiId){
+  const poi = loadPOIs().find(p=>p.id===poiId);
+  if(!poi){ toast('POI not found'); return; }
+  closeLocPanel();
+  document.getElementById('lrDest').textContent = poi.name;
+  if(destMk) map.removeLayer(destMk);
+  destMk = L.marker([poi.lat,poi.lng],{icon:L.divIcon({
+    className:'',
+    html:'<div style="font-size:26px;filter:drop-shadow(0 0 8px rgba(103,72,70,.7))"><i class="fa-solid fa-hospital" style="color:var(--brown)"></i></div>',
+    iconSize:[32,32],iconAnchor:[16,16],
+  })}).addTo(map).bindPopup(`<b>${poi.name}</b>`);
+  const fLat=gpsLat||12.9716, fLng=gpsLng||77.5946;
+  sysLog(`Routing to POI: ${poi.name}`,'i');
+  toast(`Routing to ${poi.name}…`);
+  await fetchRoute(fLat,fLng,poi.lat,poi.lng);
+  if(!emergency) toggleEmergency();
+}
+
+// ── Fly to POI ────────────────────────────────────
+function flyToPOI(poiId){
+  const poi = loadPOIs().find(p=>p.id===poiId);
+  if(!poi) return;
+  map.flyTo([poi.lat,poi.lng],17,{duration:1});
+  if(window._poiMks && window._poiMks[poiId]) window._poiMks[poiId].openPopup();
+}
+
+// ── Delete POI ────────────────────────────────────
+function deletePOIById(poiId){
+  if(!confirm('Remove this location?')) return;
+  const pois = loadPOIs().filter(p=>p.id!==poiId);
+  savePOIs(pois);
+  if(window._poiMks && window._poiMks[poiId]){
+    map.removeLayer(window._poiMks[poiId]);
+    delete window._poiMks[poiId];
+  }
+  const card = document.getElementById(`poicard_${poiId}`);
+  if(card) card.remove();
+  sysLog('POI deleted','w');
+  toast('Location deleted');
+}
+
+// ── Panel open/close ──────────────────────────────
+function openLocPanel(){
+  document.getElementById('locPanel').style.width='290px';
+  renderLocList();
+}
+function closeLocPanel(){
+  document.getElementById('locPanel').style.width='0';
+}
+</script>
+</script></document_content>
